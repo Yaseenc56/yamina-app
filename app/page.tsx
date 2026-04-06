@@ -1,69 +1,51 @@
-cat << 'EOF' > app/page.tsx
 'use client';
 
 import React, { useState } from 'react';
 
-export default function YaminaPro() {
+export default function YaminaApp() {
   const [activeSlot, setActiveSlot] = useState(0);
-  const [digits, setDigits] = useState(['', '', '', '', '']);
-  const [confirmed, setConfirmed] = useState([false, false, false, false, false]);
+  const [digits, setDigits] = useState(['', '', '', '']);
   const [history, setHistory] = useState<string[]>([]);
 
   const pressNumber = (num: string) => {
-    if (confirmed[activeSlot]) return;
     const newDigits = [...digits];
     newDigits[activeSlot] = num;
     setDigits(newDigits);
-
-    let next = (activeSlot + 1) % 5;
-    let count = 0;
-    while (confirmed[next] && count < 5) {
-      next = (next + 1) % 5;
-      count++;
-    }
-    setActiveSlot(next);
-  };
-
-  const toggleVerify = (index: number) => {
-    if (digits[index] === '') return;
-    const newConfirmed = [...confirmed];
-    newConfirmed[index] = !newConfirmed[index];
-    setConfirmed(newConfirmed);
-    
-    if (newConfirmed.filter(Boolean).length === 5) {
-      import('canvas-confetti').then(confetti => {
-        confetti.default({ particleCount: 150, spread: 70, origin: { y: 0.7 }, colors: ['#10B981', '#34D399'] });
-      });
-    }
+    if (activeSlot < 3) setActiveSlot(activeSlot + 1);
   };
 
   const logGuess = () => {
     const currentGuess = digits.map(d => d || '-').join('');
     if (currentGuess.includes('-')) return;
     setHistory([currentGuess, ...history]);
-    setDigits(digits.map((d, i) => confirmed[i] ? d : ''));
-    setActiveSlot(confirmed.indexOf(false));
+    setDigits(['', '', '', '']);
+    setActiveSlot(0);
   };
 
   return (
-    <div className="fixed inset-0 bg-[#F2F2F7] flex flex-col items-center justify-between py-12 px-6 overflow-hidden touch-none">
-      <div className="text-center w-full mt-4">
-        <h1 className="text-3xl font-extrabold tracking-tighter text-[#1C1C1E]">Yamina</h1>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-          {confirmed.filter(Boolean).length}/5 Digits Verified
-        </p>
+    <div className="fixed inset-0 bg-[#FBFBFB] flex flex-col items-center justify-between py-12 px-8 overflow-hidden touch-none select-none">
+      <div className="text-center w-full flex flex-col items-center mt-4">
+        <div className="relative mb-1">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 2.67-2.76 4-2.26.33.67.33 1.33 0 2a6 6 0 0 1 2 4.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8.5a6 6 0 0 1 2-4.5c-.33-.67-.33-1.33 0-2 1.33-.5 2.22.26 4 2.26.65-.17 1.33-.26 2-.26z" />
+            <circle cx="9" cy="14" r="1" fill="#1C1C1E" />
+            <circle cx="15" cy="14" r="1" fill="#1C1C1E" />
+            <path d="M11 16.5c.67.33 1.33.33 2 0" />
+          </svg>
+        </div>
+        <h1 className="text-3xl font-bold tracking-tighter text-[#1C1C1E] lowercase">yamina</h1>
+        <div className="h-[1px] w-8 bg-[#E5E5EA] mt-3"></div>
       </div>
 
-      <div className="flex w-full max-w-sm justify-between gap-2 my-8">
+      <div className="flex w-full max-w-xs justify-between gap-3">
         {digits.map((digit, i) => (
           <div
             key={i}
-            onClick={() => {
-              setActiveSlot(i);
-              if (digits[i] !== '') toggleVerify(i);
-            }}
-            className={`w-14 h-20 flex items-center justify-center text-3xl font-light rounded-[20px] transition-all duration-300
-              ${confirmed[i] ? 'bg-[#ECFDF5] border-2 border-[#10B981] text-[#047857]' : activeSlot === i ? 'bg-white border-2 border-[#007AFF]' : 'bg-white border border-[#E5E5EA]'}
+            onClick={() => setActiveSlot(i)}
+            className={`w-16 h-24 flex items-center justify-center text-4xl font-light rounded-2xl transition-all duration-300
+              ${activeSlot === i 
+                ? 'bg-white border-[1.5px] border-[#007AFF] shadow-lg scale-105' 
+                : 'bg-white border border-[#E5E5EA] text-[#1C1C1E]'}
             `}
           >
             {digit}
@@ -71,21 +53,24 @@ export default function YaminaPro() {
         ))}
       </div>
 
-      <div className="w-full max-w-sm grid grid-cols-3 gap-3 mb-6">
+      <div className="w-full max-w-xs grid grid-cols-3 gap-4 mb-2">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <button key={n} onClick={() => pressNumber(n.toString())} className="h-16 bg-white border border-[#E5E5EA] rounded-2xl text-2xl font-medium active:bg-slate-100 transition-all shadow-sm">{n}</button>
+          <button key={n} onClick={() => pressNumber(n.toString())} className="h-14 bg-white border border-[#F2F2F7] rounded-2xl text-xl font-medium active:bg-[#F2F2F7] shadow-sm">{n}</button>
         ))}
-        <button onClick={() => setDigits(digits.map((d, i) => confirmed[i] ? d : ''))} className="h-16 text-slate-400 text-sm font-bold uppercase tracking-tighter">Clear</button>
-        <button onClick={() => pressNumber('0')} className="h-16 bg-white border border-[#E5E5EA] rounded-2xl text-2xl font-medium active:bg-slate-100 shadow-sm">0</button>
-        <button onClick={logGuess} className="h-16 bg-[#1C1C1E] text-white rounded-2xl text-2xl font-bold active:opacity-80 shadow-lg">↵</button>
+        <button onClick={() => {setDigits(['','','','']); setActiveSlot(0)}} className="text-[10px] font-bold text-[#C7C7CC] uppercase tracking-widest">Clear</button>
+        <button onClick={() => pressNumber('0')} className="h-14 bg-white border border-[#F2F2F7] rounded-2xl text-xl font-medium active:bg-[#F2F2F7] shadow-sm">0</button>
+        <button onClick={logGuess} className="h-14 bg-[#1C1C1E] text-white rounded-2xl flex items-center justify-center active:opacity-70 shadow-md">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+        </button>
       </div>
 
-      <div className="w-full flex gap-2 overflow-x-auto pb-4 px-2 no-scrollbar h-12 items-center">
-        {history.map((h, i) => (
-          <div key={i} className="flex-shrink-0 px-4 py-2 bg-white border border-slate-200 rounded-full text-[10px] font-mono text-slate-500">{h}</div>
-        ))}
+      <div className="w-full h-12 flex items-center justify-center">
+        <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">
+          {history.map((h, i) => (
+            <div key={i} className="flex-shrink-0 px-4 py-1.5 bg-white border border-[#E5E5EA] rounded-full text-xs font-medium text-[#8E8E93] tracking-widest shadow-sm">{h}</div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
-EOF
