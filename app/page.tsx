@@ -1,180 +1,213 @@
 "use client";
-// @ts-nocheck
 
 import React, { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
-import { Eye, EyeOff, Lock, Unlock, RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Delete, Send, CheckCircle2, HelpCircle } from 'lucide-react';
+
+// Using dynamic import for confetti to ensure it only loads on the client
+const triggerConfetti = async () => {
+  const confetti = (await import('canvas-confetti')).default;
+  confetti({
+    particleCount: 150,
+    spread: 70,
+    origin: { y: 0.6 },
+    colors: ['#000000', '#ec4899', '#3b82f6']
+  });
+};
 
 export default function YaminaGame() {
-  const [gameState, setGameState] = useState('setup'); // setup, playing
+  const [gameState, setGameState] = useState('setup'); // setup, playing, won
   const [secretNumber, setSecretNumber] = useState('');
-  const [progress, setProgress] = useState(['', '', '', '']);
-  const [showSecret, setShowSecret] = useState(false);
-  const [isWinning, setIsWinning] = useState(false);
+  const [currentGuess, setCurrentGuess] = useState(['', '', '', '']);
+  const [history, setHistory] = useState([]); // Array of { guess: string, bulls: number, cows: number }
+  const [activeSlot, setActiveSlot] = useState(0);
 
-  // Check for win condition
-  useEffect(() => {
-    if (secretNumber && progress.every((digit, index) => digit === secretNumber[index] && digit !== '')) {
-      handleWin();
+  // Handle Keypad Input
+  const handleKeypadPress = (num) => {
+    if (activeSlot < 4) {
+      const newGuess = [...currentGuess];
+      newGuess[activeSlot] = num.toString();
+      setCurrentGuess(newGuess);
+      setActiveSlot(activeSlot + 1);
     }
-  }, [progress, secretNumber]);
+  };
 
-  const handleWin = () => {
-    if (isWinning) return;
-    setIsWinning(true);
-    const duration = 5 * 1000;
-    const animationEnd = Date.now() + duration;
+  const handleBackspace = () => {
+    if (activeSlot > 0) {
+      const newGuess = [...currentGuess];
+      newGuess[activeSlot - 1] = '';
+      setCurrentGuess(newGuess);
+      setActiveSlot(activeSlot - 1);
+    }
+  };
+
+  const submitGuess = () => {
+    if (currentGuess.includes('')) return;
+
+    const guessStr = currentGuess.join('');
+    let bulls = 0;
+    let cows = 0;
+
+    const secretArr = secretNumber.split('');
+    const guessArr = [...currentGuess];
+
+    // Calculate Bulls (Correct digit, correct spot)
+    for (let i = 0; i < 4; i++) {
+      if (guessArr[i] === secretArr[i]) {
+        bulls++;
+        secretArr[i] = null;
+        guessArr[i] = null;
+      }
+    }
+
+    // Calculate Cows (Correct digit, wrong spot)
+    for (let i = 0; i < 4; i++) {
+      if (guessArr[i] !== null) {
+        const index = secretArr.indexOf(guessArr[i]);
+        if (index !== -1) {
+          cows++;
+          secretArr[index] = null;
+        }
+      }
+    }
+
+    const newHistoryEntry = { guess: guessStr, bulls, cows };
+    setHistory([newHistoryEntry, ...history]);
     
-    const randomInRange = (min, max) => Math.random() * (max - min) + min;
-
-    const interval = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) return clearInterval(interval);
-      
-      confetti({ 
-        particleCount: 40, 
-        startVelocity: 30, 
-        spread: 360, 
-        origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 } 
-      });
-    }, 250);
-  };
-
-  const handleSetSecret = (e) => {
-    e.preventDefault();
-    if (secretNumber.length === 4) setGameState('playing');
-  };
-
-  const updateDigit = (index, value) => {
-    const newProgress = [...progress];
-    newProgress[index] = value.slice(-1);
-    setProgress(newProgress);
+    if (bulls === 4) {
+      setGameState('won');
+      triggerConfetti();
+    } else {
+      // Reset for next guess
+      setCurrentGuess(['', '', '', '']);
+      setActiveSlot(0);
+    }
   };
 
   const resetGame = () => {
     setGameState('setup');
     setSecretNumber('');
-    setProgress(['', '', '', '']);
-    setIsWinning(false);
-  };
-
-  const getCatState = () => {
-    const correctCount = progress.filter((d, i) => d === secretNumber[i] && d !== '').length;
-    if (isWinning) return "🎉";
-    if (correctCount >= 3) return "😻";
-    if (correctCount >= 1) return "😺";
-    return "😸";
+    setCurrentGuess(['', '', '', '']);
+    setHistory([]);
+    setActiveSlot(0);
   };
 
   if (gameState === 'setup') {
     return (
-      <div className="min-h-screen bg-[#F6F9FC] flex flex-col items-center justify-center p-6 font-sans text-slate-800">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 text-center">
-          <div className="text-6xl mb-4 animate-bounce">🎁</div>
-          <h1 className="text-2xl font-semibold mb-2">Create a Secret</h1>
-          <p className="text-slate-500 mb-8">Enter the 4-digit code she needs to guess.</p>
-          <form onSubmit={handleSetSecret} className="space-y-6">
-            <input
-              type="password"
-              maxLength={4}
-              placeholder="0000"
-              value={secretNumber}
-              onChange={(e) => setSecretNumber(e.target.value.replace(/\D/g, ''))}
-              className="w-full text-center text-4xl tracking-[1em] py-4 rounded-2xl border-2 border-slate-100 focus:border-pink-300 focus:outline-none transition-all"
-            />
-            <button 
-              type="submit"
-              disabled={secretNumber.length !== 4}
-              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-medium hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg"
-            >
-              Start Game
-            </button>
-          </form>
+      <div className="min-h-screen bg-[#FDFDFD] flex flex-col items-center justify-center p-6 font-sans">
+        <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8 text-center">
+          <div className="text-5xl mb-6">🐱</div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 mb-2">Set the Secret</h1>
+          <p className="text-slate-400 text-sm mb-8">Enter 4 digits for her to guess.</p>
+          <input
+            type="password"
+            maxLength={4}
+            value={secretNumber}
+            onChange={(e) => setSecretNumber(e.target.value.replace(/\D/g, ''))}
+            className="w-full text-center text-4xl tracking-[0.5em] py-5 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-slate-200 outline-none mb-6 font-mono"
+            placeholder="****"
+          />
+          <button 
+            onClick={() => secretNumber.length === 4 && setGameState('playing')}
+            disabled={secretNumber.length !== 4}
+            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold hover:bg-slate-800 transition-all disabled:opacity-20"
+          >
+            Start Challenge
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F9FC] flex flex-col items-center p-6 font-sans text-slate-800 relative overflow-hidden">
-      <div className="w-full max-w-md flex justify-between items-center mb-12 mt-4">
-        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Yamina Live</span>
-        </div>
-        
-        <button 
-          onClick={() => setShowSecret(!showSecret)}
-          className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors"
-        >
-          {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
-          <span className="text-sm font-mono font-bold tracking-widest">
-            {showSecret ? secretNumber : "****"}
-          </span>
+    <div className="min-h-screen bg-[#FDFDFD] flex flex-col items-center p-6 font-sans text-slate-900">
+      {/* Header */}
+      <div className="w-full max-w-md flex justify-between items-center mb-8 mt-2">
+        <span className="text-xs font-black uppercase tracking-widest text-slate-300">Yamina v2.0</span>
+        <button onClick={resetGame} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
+          <RefreshCcw size={18} />
         </button>
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-10 relative">
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 text-8xl transition-all duration-500 transform hover:scale-110">
-          <div className="relative">
-             <span className="relative z-10">{getCatState()}</span>
-             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-200/40 blur-lg -z-10 rounded-full" />
+      {/* Main Game Area */}
+      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-50 p-8 relative overflow-hidden">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-2">{gameState === 'won' ? '😻' : '😸'}</div>
+          <h2 className="text-lg font-bold">{gameState === 'won' ? 'Perfect Match!' : 'Current Guess'}</h2>
+        </div>
+
+        {/* Guess Slots */}
+        <div className="grid grid-cols-4 gap-3 mb-10">
+          {currentGuess.map((digit, i) => (
+            <div 
+              key={i} 
+              className={`h-16 flex items-center justify-center text-2xl font-bold rounded-2xl border-2 transition-all
+                ${activeSlot === i ? 'border-blue-400 bg-blue-50/30' : 'border-slate-100 bg-slate-50'}`}
+            >
+              {digit}
+            </div>
+          ))}
+        </div>
+
+        {/* On-Screen Keypad */}
+        {gameState !== 'won' && (
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <button 
+                key={n} 
+                onClick={() => handleKeypadPress(n)}
+                className="h-14 bg-slate-50 hover:bg-slate-100 active:scale-95 rounded-xl font-bold text-lg transition-all"
+              >
+                {n}
+              </button>
+            ))}
+            <button onClick={handleBackspace} className="h-14 flex items-center justify-center text-slate-400 hover:text-red-500">
+              <Delete size={24} />
+            </button>
+            <button onClick={() => handleKeypadPress(0)} className="h-14 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-lg">0</button>
+            <button 
+              onClick={submitGuess}
+              disabled={currentGuess.includes('')}
+              className="h-14 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 disabled:opacity-20 transition-all"
+            >
+              <Send size={20} />
+            </button>
           </div>
-        </div>
+        )}
 
-        <div className="text-center mt-4 mb-10">
-          <h2 className="text-xl font-semibold">Unlock the Prize</h2>
-          <p className="text-slate-400 text-sm">Update the slots as she guesses!</p>
-        </div>
-
-        <div className="grid grid-cols-4 gap-4">
-          {progress.map((digit, index) => {
-            const isCorrect = digit === secretNumber[index] && digit !== '';
-            return (
-              <div key={index} className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={digit}
-                  onChange={(e) => updateDigit(index, e.target.value.replace(/\D/g, ''))}
-                  className={`w-full h-20 text-center text-3xl font-bold rounded-2xl border-2 transition-all duration-300 outline-none
-                    ${isCorrect 
-                      ? 'bg-pink-50 border-pink-200 text-pink-600 shadow-inner' 
-                      : 'bg-white border-slate-100 focus:border-slate-300'}`}
-                />
-                {isCorrect ? (
-                  <div className="absolute -top-2 -right-2 bg-pink-500 text-white p-1 rounded-full shadow-lg">
-                    <Unlock size={10} />
-                  </div>
-                ) : (
-                  digit !== '' && (
-                    <div className="absolute -top-2 -right-2 bg-slate-200 text-slate-500 p-1 rounded-full">
-                      <Lock size={10} />
-                    </div>
-                  )
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {isWinning && (
-          <div className="mt-10 text-center animate-bounce">
-            <p className="text-pink-500 font-bold text-lg">Yay! You found it! 🐾</p>
-          </div>
+        {gameState === 'won' && (
+          <button 
+            onClick={resetGame}
+            className="w-full bg-green-500 text-white py-4 rounded-2xl font-bold animate-pulse"
+          >
+            Play Again
+          </button>
         )}
       </div>
 
-      <button 
-        onClick={resetGame}
-        className="mt-12 flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors text-sm font-medium"
-      >
-        <RefreshCcw size={14} />
-        New Game
-      </button>
-
-      <div className="fixed top-20 -left-10 w-40 h-40 bg-pink-100 rounded-full blur-[80px] -z-10 opacity-60" />
-      <div className="fixed bottom-20 -right-10 w-60 h-60 bg-blue-100 rounded-full blur-[100px] -z-10 opacity-60" />
+      {/* History Log */}
+      <div className="w-full max-w-md mt-8">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">History</h3>
+        <div className="space-y-2">
+          {history.length === 0 && (
+            <div className="text-center py-8 text-slate-300 italic text-sm">No guesses yet...</div>
+          )}
+          {history.map((entry, i) => (
+            <div key={i} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm animate-in fade-in slide-in-from-top-2">
+              <span className="font-mono text-xl font-bold tracking-widest">{entry.guess}</span>
+              <div className="flex gap-3">
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 size={16} className="text-green-500" />
+                  <span className="text-sm font-bold">{entry.bulls}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <HelpCircle size={16} className="text-amber-500" />
+                  <span className="text-sm font-bold">{entry.cows}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
